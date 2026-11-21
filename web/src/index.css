@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+/* Colores de Pausa. Se usan como bg-papel, text-tinta, bg-acento, etc. */
+@theme {
+  --color-papel: #f4f1ea;
+  --color-tarjeta: #fbfaf6;
+  --color-tinta: #1f2a2e;
+  --color-suave: #66716d;
+  --color-linea: #ddd8cc;
+  --color-acento: #2f6f6a;
+  --color-acento-claro: #e1ece9;
+  --color-alerta: #b4532a;
+  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+
+body {
+  @apply bg-papel text-tinta font-sans antialiased;
+}
+
+.numeros {
+  font-variant-numeric: tabular-nums;
+}
