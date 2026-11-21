@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Estás en Pausa</title>
+    <link rel="icon" href="icons/icono-32.png" />
+    <link rel="stylesheet" href="estilos.css" />
+  </head>
+  <body>
+    <main class="bloqueo">
+      <p class="etiqueta" id="etiqueta">Sesión de enfoque activa</p>
+      <h1 id="titulo">Estás en Pausa</h1>
+      <p class="sitio suave" id="sitio"></p>
+
+      <div class="intencion" id="caja-intencion" hidden>
+        <p class="suave">Te propusiste:</p>
+        <p class="texto" id="intencion"></p>
+      </div>
+
+      <p class="reloj numeros" id="reloj"></p>
+
+      <div class="acciones">
+        <button class="boton" id="volver">Volver a Pausa</button>
+        <a class="boton boton-secundario" id="ir-al-sitio" hidden>Ir al sitio</a>
+      </div>
+    </main>
+    <script type="module" src="blocked.js"></script>
+  </body>
+</html>
