@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { useTemporizador } from '../hooks/useTemporizador.js'
 import { formatearReloj } from '../lib/tiempo.js'
+import { ir } from '../hooks/useRuta.js'
 
 // Descanso corto entre sesiones. En la Fase 5 aquí se van a sugerir
-// las actividades de desintoxicación.
+// las actividades de desintoxicación; por ahora hay un botón que lleva a ellas.
 export default function Descanso({ terminaEn, onTerminar }) {
   const restante = useTemporizador(terminaEn)
 
@@ -18,9 +19,20 @@ export default function Descanso({ terminaEn, onTerminar }) {
       <p className="mt-8 max-w-sm text-suave">
         Levántate, toma agua y mira algo lejos de la pantalla. Mejor sin el celular.
       </p>
-      <button onClick={onTerminar} className="mt-10 rounded-lg px-4 py-2 text-sm text-suave hover:text-tinta">
-        Saltar descanso
-      </button>
+      <div className="mt-10 flex gap-3">
+        <button
+          onClick={() => {
+            onTerminar()
+            ir('actividades')
+          }}
+          className="rounded-lg bg-acento px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
+        >
+          Elegir una actividad
+        </button>
+        <button onClick={onTerminar} className="rounded-lg px-4 py-2 text-sm text-suave hover:text-tinta">
+          Saltar descanso
+        </button>
+      </div>
     </main>
   )
 }

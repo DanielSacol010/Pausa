@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Layout from './components/Layout.jsx'
+import Actividades from './pages/Actividades.jsx'
 import Descanso from './pages/Descanso.jsx'
+import Documentacion from './pages/Documentacion.jsx'
+import Estudio from './pages/Estudio.jsx'
 import Inicio from './pages/Inicio.jsx'
 import Resumen from './pages/Resumen.jsx'
 import Sesion from './pages/Sesion.jsx'
+import Videos from './pages/Videos.jsx'
 import { useExtension } from './hooks/useExtension.js'
+import { useRuta } from './hooks/useRuta.js'
 import { enviarAExtension } from './lib/extension.js'
 import { agregarAlHistorial, guardarSesionActual, leerHistorial, leerSesionActual } from './lib/historial.js'
 import { salirPantallaCompleta } from './lib/pantallaCompleta.js'
@@ -19,6 +25,7 @@ export default function App() {
   const [descanso, setDescanso] = useState(null)
   const [historial, setHistorial] = useState(() => leerHistorial())
   const extensionConectada = useExtension()
+  const ruta = useRuta()
 
   useEffect(() => {
     guardarSesionActual(sesion)
@@ -104,6 +111,8 @@ export default function App() {
 
   const terminarDescanso = useCallback(() => setDescanso(null), [])
 
+  // Durante una sesión de enfoque, el resumen o el descanso se ocupa toda
+  // la pantalla (sin menú). El resto de la app va dentro del Layout.
   if (sesion) {
     return <Sesion sesion={sesion} onActualizar={setSesion} onTerminar={terminar} />
   }
@@ -120,5 +129,16 @@ export default function App() {
   if (descanso) {
     return <Descanso terminaEn={descanso.terminaEn} onTerminar={terminarDescanso} />
   }
-  return <Inicio extensionConectada={extensionConectada} historial={historial} onEmpezar={empezar} />
+
+  let pagina
+  if (ruta.seccion === 'videos') pagina = <Videos idInicial={ruta.id} />
+  else if (ruta.seccion === 'actividades') pagina = <Actividades idAbierta={ruta.id} />
+  else if (ruta.seccion === 'documentacion') pagina = ruta.id ? <Estudio id={ruta.id} /> : <Documentacion />
+  else pagina = <Inicio extensionConectada={extensionConectada} historial={historial} onEmpezar={empezar} />
+
+  return (
+    <Layout seccion={ruta.seccion}>
+      <div key={`${ruta.seccion}/${ruta.seccion === 'actividades' ? '' : (ruta.id ?? '')}`}>{pagina}</div>
+    </Layout>
+  )
 }

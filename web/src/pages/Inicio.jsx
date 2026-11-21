@@ -27,15 +27,15 @@ export default function Inicio({ extensionConectada, historial, onEmpezar }) {
   const ultimas = historial.slice(0, 3)
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-xl flex-col px-6 py-10">
+    <div className="aparecer mx-auto flex max-w-xl flex-col px-6 py-10">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-tight">Pausa</h1>
+        <p className="antetitulo text-alerta">Sesión de enfoque</p>
         <EstadoExtension conectada={extensionConectada} />
       </header>
 
-      <form onSubmit={empezar} className="mt-16 space-y-8">
+      <form onSubmit={empezar} className="mt-12 space-y-8">
         <div>
-          <label htmlFor="intencion" className="block text-3xl font-semibold leading-tight">
+          <label htmlFor="intencion" className="block font-serif text-4xl leading-tight tracking-tight">
             ¿En qué vas a trabajar?
           </label>
           <input
@@ -122,6 +122,6 @@ export default function Inicio({ extensionConectada, historial, onEmpezar }) {
           </ul>
         </section>
       )}
-    </main>
+    </div>
   )
 }
