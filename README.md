@@ -1,5 +1,8 @@
 # Pausa
 
+Desintoxicación tecnológica. Aplicación diseñada por el grupo 3DE para el
+Build & Pitch de Open2.
+
 Aplicación web para enfocarse al estudiar o trabajar. Durante una sesión, una
 extensión de Chrome bloquea los sitios que más distraen.
 
