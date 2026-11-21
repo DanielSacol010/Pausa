@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/* Colores de Pausa (tomados del prototipo). Se usan como bg-papel, text-tinta, etc. */
+@theme {
+  --color-papel: #f7f7f2;
+  --color-tarjeta: #ffffff;
+  --color-lateral: #fbfcf7;
+  --color-tinta: #243c35;
+  --color-suave: #64736b;
+  --color-linea: #e2e7dd;
+  --color-acento: #214e41;
+  --color-acento-claro: #e9efdf;
+  --color-alerta: #be542e;
+  --color-alerta-claro: #f8ece3;
+  --color-noche: #0f1d19;
+  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+}
+
+body {
+  @apply bg-papel text-tinta font-sans antialiased;
+}
+
+.numeros {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Etiqueta pequeña en mayúsculas, como en el prototipo */
+.antetitulo {
+  @apply text-[10px] font-semibold uppercase tracking-[0.16em];
+}
+
+/* Animaciones suaves para que los cambios de página no sean bruscos */
+@keyframes aparecer {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.aparecer {
+  animation: aparecer 0.35s ease both;
+}
+
+@keyframes flotar {
+  0%, 100% { transform: scale(1); opacity: 0.35; }
+  50% { transform: scale(1.12); opacity: 0.6; }
+}
+.flotar {
+  animation: flotar 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aparecer, .flotar { animation: none; }
+}
+
+/* Oculta la barra de scroll del feed de videos */
+.sin-barra { scrollbar-width: none; }
+.sin-barra::-webkit-scrollbar { display: none; }

@@ -1,0 +1,76 @@
+:root {
+  --papel: #f4f1ea;
+  --tarjeta: #fbfaf6;
+  --tinta: #1f2a2e;
+  --suave: #66716d;
+  --linea: #ddd8cc;
+  --acento: #2f6f6a;
+  --acento-claro: #e1ece9;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.numeros { font-variant-numeric: tabular-nums; }
+.suave { color: var(--suave); }
+
+.boton {
+  display: inline-block;
+  border: 0;
+  border-radius: 12px;
+  background: var(--acento);
+  color: white;
+  font: inherit;
+  font-weight: 600;
+  padding: 12px 20px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.boton:hover { filter: brightness(1.1); }
+
+.boton-secundario {
+  background: transparent;
+  color: var(--acento);
+}
+.boton-secundario:hover { background: var(--acento-claro); filter: none; }
+
+/* Página de bloqueo */
+.bloqueo {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+.bloqueo .etiqueta { color: var(--acento); font-weight: 600; font-size: 14px; margin: 0; }
+.bloqueo h1 { font-size: 40px; font-weight: 600; margin: 12px 0 0; letter-spacing: -0.01em; }
+.bloqueo .sitio { margin-top: 12px; }
+.bloqueo .intencion {
+  margin-top: 32px;
+  max-width: 480px;
+  padding: 16px 20px;
+  border: 1px solid var(--linea);
+  border-radius: 14px;
+  background: var(--tarjeta);
+}
+.bloqueo .intencion p { margin: 0; }
+.bloqueo .intencion .texto { margin-top: 4px; font-size: 18px; }
+.bloqueo .reloj { margin-top: 32px; font-size: 64px; font-weight: 300; }
+.bloqueo .acciones { margin-top: 32px; display: flex; gap: 12px; }
+
+/* Popup */
+.popup { width: 280px; padding: 18px; }
+.popup h1 { font-size: 18px; margin: 0; }
+.popup .estado { margin-top: 12px; font-size: 14px; }
+.popup .reloj { font-size: 36px; font-weight: 300; margin: 8px 0 0; }
+.popup .boton { margin-top: 16px; width: 100%; text-align: center; }

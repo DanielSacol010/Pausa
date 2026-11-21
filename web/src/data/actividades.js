@@ -1,0 +1,133 @@
+// Actividades de desintoxicación. Cada una apunta al estudio que la respalda.
+// Para la demo hay 9; el plan es llegar a unas 20.
+
+export const ACTIVIDADES = [
+  {
+    id: 'respirar',
+    nombre: 'Volver a tu respiración',
+    categoria: 'Calma',
+    minutos: 5,
+    icono: 'respirar',
+    descripcion: 'Una práctica sencilla para notar la distracción y regresar al presente.',
+    pasos: [
+      'Siéntate en una posición cómoda. Puedes dejar los ojos abiertos.',
+      'Observa tu respiración natural, sin forzarla ni retener el aire.',
+      'Cuando notes que te distrajiste, vuelve con calma a la sensación de respirar.',
+    ],
+    estudio: 'atencion-plena',
+  },
+  {
+    id: 'pausa-real',
+    nombre: 'Tomar una pausa real',
+    categoria: 'Descanso',
+    minutos: 3,
+    icono: 'sol',
+    descripcion: 'Interrumpe el esfuerzo un momento y vuelve con un objetivo claro.',
+    pasos: [
+      'Detén tu tarea en un punto donde puedas retomarla fácilmente.',
+      'Levántate si puedes, estírate o mira a tu alrededor.',
+      'Antes de volver, define cuál es el siguiente paso concreto de tu tarea.',
+    ],
+    estudio: 'pausas-breves',
+  },
+  {
+    id: 'silenciar',
+    nombre: 'Silenciar las notificaciones',
+    categoria: 'Enfoque',
+    minutos: 15,
+    icono: 'celular',
+    descripcion: 'Termina una tarea concreta sin avisos que te interrumpan.',
+    pasos: [
+      'Elige una tarea pequeña y define qué significa terminarla.',
+      'Activa el modo No molestar o apaga los avisos que no necesites.',
+      'Trabaja en esa tarea y revisa los mensajes solo al terminar.',
+    ],
+    estudio: 'notificaciones',
+  },
+  {
+    id: 'leer',
+    nombre: 'Leer sin interrupciones',
+    categoria: 'Enfoque',
+    minutos: 15,
+    icono: 'libro',
+    descripcion: 'Una lectura, una sola cosa a la vez.',
+    pasos: [
+      'Elige un texto y prepara un lugar cómodo.',
+      'Lee sin cambiar a otras pestañas ni a otras tareas.',
+      'Al terminar, escribe tres ideas principales con tus propias palabras.',
+    ],
+    estudio: 'multitarea',
+  },
+  {
+    id: 'escuchar',
+    nombre: 'Escuchar con presencia',
+    categoria: 'Enfoque',
+    minutos: 10,
+    icono: 'audifonos',
+    descripcion: 'Una explicación o un audio, con toda tu atención.',
+    pasos: [
+      'Elige una clase, una charla o un audio educativo.',
+      'Escucha sin revisar mensajes ni hacer otras tareas.',
+      'Al final, explica lo que entendiste en voz alta o por escrito.',
+    ],
+    estudio: 'multitarea',
+  },
+  {
+    id: 'crear-sin-conexion',
+    nombre: 'Crear sin conexión',
+    categoria: 'Enfoque',
+    minutos: 20,
+    icono: 'hoja',
+    descripcion: 'Dibuja, cocina o haz una manualidad sin internet en el celular.',
+    pasos: [
+      'Prepara lo que necesitas para una actividad que no use internet.',
+      'Apaga los datos y el wifi del celular, si puedes.',
+      'Dedica este tiempo a crear y fíjate cuántas veces te dan ganas de revisar la pantalla.',
+    ],
+    estudio: 'internet-movil',
+  },
+  {
+    id: 'caminar',
+    nombre: 'Caminar entre árboles',
+    categoria: 'Movimiento',
+    minutos: 20,
+    icono: 'hoja',
+    descripcion: 'Sal a un espacio verde y deja que el entorno marque otro ritmo.',
+    pasos: [
+      'Elige un parque o una ruta con árboles que sea segura para ti.',
+      'Camina a un ritmo cómodo, prestando atención a lo que ves y escuchas.',
+      'Al terminar, nota cómo te sientes antes de volver a tu tarea.',
+    ],
+    estudio: 'naturaleza',
+  },
+  {
+    id: 'moverte',
+    nombre: 'Moverte a tu manera',
+    categoria: 'Movimiento',
+    minutos: 15,
+    icono: 'mover',
+    descripcion: 'Baila, juega o muévete con algo que disfrutes.',
+    pasos: [
+      'Escoge una canción, un juego activo o un ejercicio que te guste.',
+      'Muévete a una intensidad cómoda y descansa cuando lo necesites.',
+      'Busca repetirlo otros días de la semana.',
+    ],
+    estudio: 'ejercicio',
+  },
+  {
+    id: 'registrar-sueno',
+    nombre: 'Registrar tu descanso',
+    categoria: 'Descanso',
+    minutos: 3,
+    icono: 'luna',
+    descripcion: 'Observa la relación entre tu sueño y tu concentración.',
+    pasos: [
+      'Anota a qué hora dormiste y despertaste, y cómo sentiste tu descanso.',
+      'Anota en qué momentos del día te costó concentrarte.',
+      'Repítelo una semana y busca patrones.',
+    ],
+    estudio: 'sueno',
+  },
+]
+
+export const CATEGORIAS_ACTIVIDADES = ['Todas', 'Enfoque', 'Calma', 'Movimiento', 'Descanso']
