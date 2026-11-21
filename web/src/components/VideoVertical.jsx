@@ -1,131 +1,127 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Icono from './Icono.jsx'
-import { callar, hablar } from '../lib/voz.js'
-
-const FONDOS = {
-  verde: 'from-[#163d32] via-[#214e41] to-[#4b7d5e]',
-  naranja: 'from-[#6d2f18] via-[#9c4424] to-[#cf7b4f]',
-  azul: 'from-[#1d3f47] via-[#2c5a63] to-[#5b8f93]',
-}
 
 function formatear(seg) {
-  const s = Math.floor(seg)
+  const s = Math.floor(seg || 0)
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-// Demo de un video vertical 9:16. En lugar de un archivo .mp4 muestra las
-// escenas del guion con animación y, si el sonido está activo, las narra
-// con la voz del navegador. Cuando tengan los videos de IA, este componente
-// se cambia por un <video> con los mismos controles.
+// Video vertical 9:16 con controles propios: reproducir, pausar, reiniciar,
+// sonido y barra de progreso (se puede tocar para adelantar o regresar).
+// Solo se reproduce el video que está en pantalla.
 export default function VideoVertical({ video, activo, sonido, onSonido }) {
-  const [tiempo, setTiempo] = useState(0)
+  const ref = useRef(null)
   const [reproduciendo, setReproduciendo] = useState(false)
-  const terminado = tiempo >= video.duracion
+  const [tiempo, setTiempo] = useState(0)
+  const [duracion, setDuracion] = useState(video.duracion)
+  const [terminado, setTerminado] = useState(false)
 
-  // Se reproduce solo cuando está en pantalla
+  // Reproduce cuando entra en pantalla y pausa cuando sale
   useEffect(() => {
+    const v = ref.current
     if (activo) {
-      setTiempo(0)
-      setReproduciendo(true)
+      v.currentTime = 0
+      v.play().catch(() => setReproduciendo(false))
     } else {
-      setReproduciendo(false)
+      v.pause()
     }
   }, [activo])
 
-  // Avanza el tiempo
   useEffect(() => {
-    if (!reproduciendo) return
-    let anterior = performance.now()
-    const intervalo = setInterval(() => {
-      const ahora = performance.now()
-      const delta = (ahora - anterior) / 1000
-      anterior = ahora
-      setTiempo((t) => Math.min(video.duracion, t + delta))
-    }, 100)
-    return () => clearInterval(intervalo)
-  }, [reproduciendo, video.duracion])
-
-  useEffect(() => {
-    if (terminado) setReproduciendo(false)
-  }, [terminado])
-
-  let indice = 0
-  video.escenas.forEach((escena, i) => {
-    if (escena.seg <= tiempo) indice = i
-  })
-  const escena = video.escenas[indice]
-
-  // Narración de cada escena
-  useEffect(() => {
-    if (!activo || !reproduciendo || !sonido) return
-    hablar(escena.texto)
-    return () => callar()
-  }, [activo, reproduciendo, sonido, escena.texto])
+    ref.current.muted = !sonido
+  }, [sonido])
 
   function alternar() {
-    if (terminado) {
-      setTiempo(0)
-      setReproduciendo(true)
-    } else {
-      setReproduciendo(!reproduciendo)
-    }
+    const v = ref.current
+    if (v.paused || v.ended) v.play().catch(() => {})
+    else v.pause()
   }
 
   function reiniciar() {
-    setTiempo(0)
-    setReproduciendo(true)
+    const v = ref.current
+    v.currentTime = 0
+    v.play().catch(() => {})
+  }
+
+  function buscar(e) {
+    const caja = e.currentTarget.getBoundingClientRect()
+    const k = Math.min(1, Math.max(0, (e.clientX - caja.left) / caja.width))
+    ref.current.currentTime = k * (ref.current.duration || duracion)
   }
 
   return (
-    <div
-      className={`relative aspect-[9/16] h-full max-h-[780px] overflow-hidden rounded-[28px] bg-gradient-to-b ${FONDOS[video.color]} text-white shadow-[0_20px_60px_#153b3340]`}
-    >
-      {/* Círculos decorativos */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
-        <div className="flotar absolute -left-16 top-24 h-72 w-72 rounded-full border border-white/25" />
-        <div className="flotar absolute -right-20 bottom-32 h-80 w-80 rounded-full border border-white/20 [animation-delay:-3s]" />
-      </div>
+    <div className="relative aspect-[9/16] h-full max-h-[780px] overflow-hidden rounded-[28px] bg-noche shadow-[0_20px_60px_#153b3340]">
+      <video
+        ref={ref}
+        src={video.src}
+        poster={video.poster}
+        playsInline
+        muted={!sonido}
+        preload="metadata"
+        className="h-full w-full object-cover"
+        onPlay={() => {
+          setReproduciendo(true)
+          setTerminado(false)
+        }}
+        onPause={() => setReproduciendo(false)}
+        onEnded={() => setTerminado(true)}
+        onTimeUpdate={(e) => setTiempo(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => setDuracion(e.currentTarget.duration)}
+      />
 
-      {/* Barra de progreso */}
-      <div className="absolute inset-x-4 top-4 h-1 overflow-hidden rounded-full bg-white/25">
-        <div className="h-full bg-white" style={{ width: `${(tiempo / video.duracion) * 100}%` }} />
-      </div>
-
-      <p className="absolute left-4 top-8 rounded-full bg-black/20 px-2.5 py-1 text-[10px] tracking-wide text-white/80">
-        Vista previa · el video final será generado con IA
-      </p>
-
-      {/* Área que se toca para pausar o reproducir */}
+      {/* Área para tocar y pausar */}
       <button
         onClick={alternar}
-        className="absolute inset-0 flex flex-col justify-center px-7 text-left"
+        className="absolute inset-0 flex items-center justify-center"
         aria-label={reproduciendo ? 'Pausar video' : 'Reproducir video'}
       >
-        <p className="font-serif text-[15px] leading-snug text-white/75">{video.titulo}</p>
-        <p key={indice} className="aparecer mt-5 font-serif text-[clamp(22px,3.4vh,32px)] leading-tight">
-          {escena.texto}
-        </p>
         {!reproduciendo && (
-          <span className="mx-auto mt-10 flex h-14 w-14 items-center justify-center rounded-full bg-white/85 text-acento">
-            <Icono nombre={terminado ? 'reiniciar' : 'play'} className="h-6 w-6" />
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white/85 text-acento shadow-lg">
+            <Icono nombre={terminado ? 'reiniciar' : 'play'} className="h-7 w-7" />
           </span>
         )}
       </button>
 
+      {/* Aviso de sonido */}
+      {!sonido && activo && (
+        <button
+          onClick={() => onSonido(true)}
+          className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 text-xs text-white backdrop-blur hover:bg-black/60"
+        >
+          <Icono nombre="silencio" className="h-4 w-4" />
+          Toca para activar el sonido
+        </button>
+      )}
+
       {/* Controles */}
-      <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-black/45 to-transparent px-3 pb-3 pt-10">
-        <BotonControl onClick={alternar} etiqueta={reproduciendo ? 'Pausar' : 'Reproducir'}>
-          <Icono nombre={reproduciendo ? 'pausa' : 'play'} />
-        </BotonControl>
-        <BotonControl onClick={reiniciar} etiqueta="Reiniciar">
-          <Icono nombre="reiniciar" />
-        </BotonControl>
-        <BotonControl onClick={() => onSonido(!sonido)} etiqueta={sonido ? 'Silenciar' : 'Activar sonido'}>
-          <Icono nombre={sonido ? 'sonido' : 'silencio'} />
-        </BotonControl>
-        <span className="numeros ml-auto pr-2 text-xs text-white/80">
-          {formatear(tiempo)} / {formatear(video.duracion)}
-        </span>
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent px-3 pb-3 pt-10 text-white">
+        <div
+          className="group mb-2 h-4 cursor-pointer py-1.5"
+          onClick={buscar}
+          role="slider"
+          aria-label="Avance del video"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(duracion)}
+          aria-valuenow={Math.round(tiempo)}
+        >
+          <div className="h-1 overflow-hidden rounded-full bg-white/30 group-hover:h-1.5">
+            <div className="h-full bg-white" style={{ width: `${(tiempo / (duracion || 1)) * 100}%` }} />
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <BotonControl onClick={alternar} etiqueta={reproduciendo ? 'Pausar' : 'Reproducir'}>
+            <Icono nombre={reproduciendo ? 'pausa' : 'play'} />
+          </BotonControl>
+          <BotonControl onClick={reiniciar} etiqueta="Reiniciar">
+            <Icono nombre="reiniciar" />
+          </BotonControl>
+          <BotonControl onClick={() => onSonido(!sonido)} etiqueta={sonido ? 'Silenciar' : 'Activar sonido'}>
+            <Icono nombre={sonido ? 'sonido' : 'silencio'} />
+          </BotonControl>
+          <span className="numeros ml-auto pr-2 text-xs text-white/80">
+            {formatear(tiempo)} / {formatear(duracion)}
+          </span>
+        </div>
       </div>
     </div>
   )
