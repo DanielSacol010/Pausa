@@ -86,7 +86,8 @@ export default function Sesion({ sesion, onActualizar, onTerminar }) {
 
       {!sesion.extensionActiva && (
         <p className="mt-6 max-w-sm text-sm text-alerta">
-          La extensión no está conectada, así que los sitios no se están bloqueando.
+          La extensión no está conectada, así que los sitios no se están bloqueando. Puedes instalarla desde
+          «Extensión de Chrome» en el menú cuando termines.
         </p>
       )}
 

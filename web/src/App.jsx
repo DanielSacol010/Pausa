@@ -5,6 +5,7 @@ import Descanso from './pages/Descanso.jsx'
 import Documentacion from './pages/Documentacion.jsx'
 import Estudio from './pages/Estudio.jsx'
 import Inicio from './pages/Inicio.jsx'
+import InstalarExtension from './pages/InstalarExtension.jsx'
 import Resumen from './pages/Resumen.jsx'
 import Sesion from './pages/Sesion.jsx'
 import Videos from './pages/Videos.jsx'
@@ -133,11 +134,12 @@ export default function App() {
   let pagina
   if (ruta.seccion === 'videos') pagina = <Videos idInicial={ruta.id} />
   else if (ruta.seccion === 'actividades') pagina = <Actividades idAbierta={ruta.id} />
+  else if (ruta.seccion === 'extension') pagina = <InstalarExtension conectada={extensionConectada} />
   else if (ruta.seccion === 'documentacion') pagina = ruta.id ? <Estudio id={ruta.id} /> : <Documentacion />
   else pagina = <Inicio extensionConectada={extensionConectada} historial={historial} onEmpezar={empezar} />
 
   return (
-    <Layout seccion={ruta.seccion}>
+    <Layout seccion={ruta.seccion} extensionConectada={extensionConectada}>
       <div key={`${ruta.seccion}/${ruta.seccion === 'actividades' ? '' : (ruta.id ?? '')}`}>{pagina}</div>
     </Layout>
   )

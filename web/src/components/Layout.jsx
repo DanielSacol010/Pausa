@@ -21,7 +21,7 @@ function Marca() {
   )
 }
 
-export default function Layout({ seccion, children }) {
+export default function Layout({ seccion, extensionConectada, children }) {
   return (
     <div className="md:grid md:min-h-screen md:grid-cols-[250px_minmax(0,1fr)]">
       {/* Menú lateral en computadora */}
@@ -47,7 +47,23 @@ export default function Layout({ seccion, children }) {
             )
           })}
         </nav>
-        <div className="mt-auto px-3 text-xs text-suave">
+        <a
+          href="#/extension"
+          className={`mt-auto flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-xs transition ${
+            seccion === 'extension' ? 'border-acento bg-acento-claro' : 'border-linea hover:bg-acento-claro'
+          }`}
+        >
+          <span
+            className={`h-2 w-2 rounded-full ${
+              extensionConectada ? 'bg-acento' : extensionConectada === false ? 'bg-alerta' : 'bg-linea'
+            }`}
+          />
+          <span>
+            <span className="block font-semibold">Extensión de Chrome</span>
+            <span className="text-suave">{extensionConectada ? 'Activa' : 'Instalar para bloquear sitios'}</span>
+          </span>
+        </a>
+        <div className="mt-5 px-3 text-xs text-suave">
           <p>Un paso pequeño. Un poco más de presencia.</p>
           <p className="mt-3 text-[10px] tracking-widest">PAUSA · DEMO</p>
         </div>
@@ -56,6 +72,10 @@ export default function Layout({ seccion, children }) {
       {/* Barra superior en celular */}
       <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-linea bg-lateral px-4 md:hidden">
         <Marca />
+        <a href="#/extension" className="flex items-center gap-1.5 text-xs text-suave">
+          <span className={`h-2 w-2 rounded-full ${extensionConectada ? 'bg-acento' : 'bg-alerta'}`} />
+          Extensión
+        </a>
       </header>
       <nav
         className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-linea bg-lateral md:hidden"

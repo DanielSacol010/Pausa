@@ -1,9 +1,6 @@
-import { useState } from 'react'
 import { SITIOS_BLOQUEADOS } from '../lib/sitios.js'
 
 export default function EstadoExtension({ conectada }) {
-  const [verAyuda, setVerAyuda] = useState(false)
-
   if (conectada === null) {
     return <span className="text-sm text-suave">Buscando la extensión…</span>
   }
@@ -18,23 +15,12 @@ export default function EstadoExtension({ conectada }) {
   }
 
   return (
-    <div className="text-sm">
-      <button
-        type="button"
-        onClick={() => setVerAyuda(!verAyuda)}
-        className="inline-flex items-center gap-2 rounded-full bg-[#f6e3d6] px-3 py-1 text-alerta"
-      >
-        <span className="h-2 w-2 rounded-full bg-alerta" />
-        Extensión no detectada: no se bloquearán sitios
-      </button>
-      {verAyuda && (
-        <ol className="mt-3 list-decimal space-y-1 pl-5 text-suave">
-          <li>Abre <code>chrome://extensions</code> en Chrome.</li>
-          <li>Activa el «Modo de desarrollador» (arriba a la derecha).</li>
-          <li>Haz clic en «Cargar descomprimida» y elige la carpeta <code>extension</code> del proyecto.</li>
-          <li>Recarga esta página.</li>
-        </ol>
-      )}
-    </div>
+    <a
+      href="#/extension"
+      className="inline-flex items-center gap-2 rounded-full bg-alerta-claro px-3 py-1 text-sm text-alerta hover:brightness-95"
+    >
+      <span className="h-2 w-2 rounded-full bg-alerta" />
+      Sin extensión: no se bloquearán sitios · <strong className="font-semibold underline">Instalarla</strong>
+    </a>
   )
 }
