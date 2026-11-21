@@ -1,5 +1,5 @@
 // Página que aparece cuando alguien intenta abrir un sitio bloqueado.
-import { URL_PAUSA } from './config.js'
+import { PATRONES_PAUSA, URL_PAUSA } from './config.js'
 
 const parametros = new URLSearchParams(location.search)
 const sitio = parametros.get('sitio') ?? ''
@@ -59,7 +59,7 @@ async function iniciar() {
 
 // Si Pausa ya está abierta en otra pestaña, vamos a esa. Si no, la abrimos aquí.
 $('volver').addEventListener('click', async () => {
-  const [pestana] = await chrome.tabs.query({ url: `${URL_PAUSA}/*` })
+  const [pestana] = await chrome.tabs.query({ url: PATRONES_PAUSA })
   if (pestana) {
     await chrome.tabs.update(pestana.id, { active: true })
     await chrome.windows.update(pestana.windowId, { focused: true })

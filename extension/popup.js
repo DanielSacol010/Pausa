@@ -1,6 +1,6 @@
 // Ventanita que sale al hacer clic en el ícono de la extensión.
 // A propósito no tiene botón para terminar la sesión: eso solo se hace desde la web.
-import { URL_PAUSA } from './config.js'
+import { PATRONES_PAUSA, URL_PAUSA } from './config.js'
 
 const caja = document.getElementById('estado')
 
@@ -31,7 +31,7 @@ async function mostrar() {
 }
 
 document.getElementById('abrir').addEventListener('click', async () => {
-  const [pestana] = await chrome.tabs.query({ url: `${URL_PAUSA}/*` })
+  const [pestana] = await chrome.tabs.query({ url: PATRONES_PAUSA })
   if (pestana) {
     await chrome.tabs.update(pestana.id, { active: true })
     await chrome.windows.update(pestana.windowId, { focused: true })

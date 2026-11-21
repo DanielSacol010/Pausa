@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: #000; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="lienzo" width="720" height="1280"></canvas>
+<script>
+// Renderizador de los videos de Pausa.
+// preparar(video) recibe la línea de tiempo (voz.py) y dibujar(t) pinta el
+// fotograma del segundo t. El script generar.mjs llama dibujar() 30 veces
+// por segundo y manda cada imagen a ffmpeg.
+
+const W = 720, H = 1280
+const lienzo = document.getElementById('lienzo')
+const ctx = lienzo.getContext('2d')
+
+const SERIF = 'Gelasio, Georgia, serif'
+const SANS = 'Inter, "DejaVu Sans", sans-serif'
+
+const PALETAS = {
+  verde:   { a: '#0f2b23', b: '#2a6450', mancha: '#5f9a6f', acento: '#cfe6b4', calido: '#f0b48a', gris: 'rgba(255,255,255,0.35)' },
+  naranja: { a: '#4a1e0e', b: '#a9542f', mancha: '#e08a5c', acento: '#ffd9b8', calido: '#ffe9a8', gris: 'rgba(255,255,255,0.35)' },
+  azul:    { a: '#10282f', b: '#36717b', mancha: '#6fa9ae', acento: '#c4ecee', calido: '#ffd6a0', gris: 'rgba(255,255,255,0.35)' },
+  noche:   { a: '#0e1430', b: '#33406e', mancha: '#6c72b8', acento: '#dcd7ff', calido: '#ffe3a3', gris: 'rgba(255,255,255,0.35)' },
+}
+const BLANCO = '#ffffff'
+const SUAVE = 'rgba(255,255,255,0.7)'
+
+let V = null, P = null
+
+// ---------- utilidades ----------
+const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x))
+const lerp = (a, b, k) => a + (b - a) * k
+const salida = (k) => 1 - Math.pow(1 - clamp(k), 3)          // ease out cubic
+const suave = (k) => 0.5 - Math.cos(Math.PI * clamp(k)) / 2      // ease in-out
+const rebote = (k) => { k = clamp(k); const c = 1.70158; return 1 + (c + 1) * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2) }
+const prog = (t, ini, dur) => clamp((t - ini) / dur)
+
+function azar(semilla) {
+  return function () {
+    semilla |= 0; semilla = (semilla + 0x6d2b79f5) | 0
+    let t = Math.imul(semilla ^ (semilla >>> 15), 1 | semilla)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function rr(x, y, w, h, r, relleno, borde, grosor = 3) {
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, r)
+  if (relleno) { ctx.fillStyle = relleno; ctx.fill() }
+  if (borde) { ctx.strokeStyle = borde; ctx.lineWidth = grosor; ctx.stroke() }
+}
+function circulo(x, y, r, relleno, borde, grosor = 3) {
+  ctx.beginPath(); ctx.arc(x, y, Math.max(0, r), 0, Math.PI * 2)
+  if (relleno) { ctx.fillStyle = relleno; ctx.fill() }
+  if (borde) { ctx.strokeStyle = borde; ctx.lineWidth = grosor; ctx.stroke() }
+}
+function linea(puntos, color, grosor = 4, k = 1) {
+  // dibuja una polilínea hasta la fracción k de su largo
+  if (puntos.length < 2 || k <= 0) return
+  const largos = []; let total = 0
+  for (let i = 1; i < puntos.length; i++) { const l = Math.hypot(puntos[i][0] - puntos[i - 1][0], puntos[i][1] - puntos[i - 1][1]); largos.push(l); total += l }
+  let resto = total * clamp(k)
+  ctx.beginPath(); ctx.moveTo(puntos[0][0], puntos[0][1])
+  let fin = puntos[0]
+  for (let i = 1; i < puntos.length && resto > 0; i++) {
+    const f = Math.min(1, resto / largos[i - 1])
+    fin = [lerp(puntos[i - 1][0], puntos[i][0], f), lerp(puntos[i - 1][1], puntos[i][1], f)]
+    ctx.lineTo(fin[0], fin[1]); resto -= largos[i - 1]
+  }
+  ctx.strokeStyle = color; ctx.lineWidth = grosor; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke()
+  return fin
+}
+function texto(t, x, y, { tam = 30, peso = 500, color = BLANCO, alinear = 'center', fuente = SANS, base = 'alphabetic' } = {}) {
+  ctx.font = `${peso} ${tam}px ${fuente}`
+  ctx.fillStyle = color; ctx.textAlign = alinear; ctx.textBaseline = base
+  ctx.fillText(t, x, y)
+}
+function partirLineas(t, ancho, fuenteCss) {
+  ctx.font = fuenteCss
+  const palabras = t.split(' '); const lineas = []; let actual = ''
+  for (const p of palabras) {
+    const prueba = actual ? actual + ' ' + p : p
+    if (ctx.measureText(prueba).width > ancho && actual) { lineas.push(actual); actual = p } else actual = prueba
+  }
+  if (actual) lineas.push(actual)
+  return lineas
+}
+function conAlfa(a, fn) { ctx.save(); ctx.globalAlpha *= clamp(a); fn(); ctx.restore() }
+function trasladar(x, y, fn, escala = 1, giro = 0) { ctx.save(); ctx.translate(x, y); ctx.rotate(giro); ctx.scale(escala, escala); fn(); ctx.restore() }
+
+// ---------- figuras ----------
+function celular(x, y, w, h, color = BLANCO) {
+  rr(x - w / 2, y - h / 2, w, h, w * 0.16, 'rgba(255,255,255,0.08)', color, 5)
+  rr(x - w * 0.14, y - h / 2 + 14, w * 0.28, 8, 4, color)
+}
+function burbuja(x, y, w, color, k = 1) {
+  conAlfa(k, () => trasladar(x, y, () => {
+    rr(-w / 2, -26, w, 52, 16, color)
+    circulo(-w / 2 + 28, 0, 13, 'rgba(0,0,0,0.18)')
+    rr(-w / 2 + 52, -11, w * 0.5, 9, 4, 'rgba(0,0,0,0.22)')
+    rr(-w / 2 + 52, 4, w * 0.32, 8, 4, 'rgba(0,0,0,0.14)')
+  }, lerp(0.7, 1, rebote(k))))
+}
+function arbol(x, y, alto, color, hoja, k = 1, vaiven = 0) {
+  if (k <= 0) return
+  const tronco = alto * 0.4 * clamp(k * 2)
+  ctx.save(); ctx.translate(x, y); ctx.rotate(vaiven)
+  rr(-alto * 0.045, -tronco, alto * 0.09, tronco, 4, color)
+  const kh = clamp(k * 2 - 1)
+  circulo(0, -alto * 0.62, alto * 0.32 * rebote(kh), hoja)
+  circulo(-alto * 0.2, -alto * 0.5, alto * 0.22 * rebote(kh), hoja)
+  circulo(alto * 0.2, -alto * 0.5, alto * 0.22 * rebote(kh), hoja)
+  ctx.restore()
+}
+function edificio(x, y, w, h, color, k = 1) {
+  const hh = h * salida(k)
+  rr(x, y - hh, w, hh, 6, color)
+  for (let fy = y - hh + 16; fy < y - 18; fy += 30)
+    for (let fx = x + 12; fx < x + w - 18; fx += 26) rr(fx, fy, 12, 14, 2, 'rgba(255,255,255,0.35)')
+}
+function luna(x, y, r, color) {
+  if (r <= 0) return
+  ctx.save()
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip()
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.arc(x + r * 0.45, y - r * 0.3, r * 0.85, 0, Math.PI * 2)
+  ctx.fillStyle = color; ctx.fill('evenodd')
+  ctx.restore()
+}
+function palomita(x, y, s, color, k = 1) {
+  linea([[x - s * 0.5, y], [x - s * 0.12, y + s * 0.38], [x + s * 0.55, y - s * 0.4]], color, s * 0.16, k)
+}
+function tache(x, y, s, color, k = 1) {
+  linea([[x - s / 2, y - s / 2], [x + s / 2, y + s / 2]], color, s * 0.16, clamp(k * 2))
+  linea([[x + s / 2, y - s / 2], [x - s / 2, y + s / 2]], color, s * 0.16, clamp(k * 2 - 1))
+}
+function ondasWifi(x, y, s, color) {
+  for (let i = 1; i <= 3; i++) { ctx.beginPath(); ctx.arc(x, y, s * i / 3, -Math.PI * 0.78, -Math.PI * 0.22); ctx.strokeStyle = color; ctx.lineWidth = s * 0.09; ctx.lineCap = 'round'; ctx.stroke() }
+  circulo(x, y, s * 0.08, color)
+}
+function ejes(x0, y0, x1, y1, etX, etY, a = 1) {
+  conAlfa(a, () => {
+    linea([[x0, y0], [x0, y1], [x1, y1]], 'rgba(255,255,255,0.55)', 3)
+    texto(etX, (x0 + x1) / 2, y1 + 46, { tam: 24, color: SUAVE })
+    ctx.save(); ctx.translate(x0 - 30, (y0 + y1) / 2); ctx.rotate(-Math.PI / 2)
+    texto(etY, 0, 0, { tam: 24, color: SUAVE }); ctx.restore()
+  })
+}
+function curva(x0, x1, f, n = 60) {
+  const pts = []; for (let i = 0; i <= n; i++) { const u = i / n; pts.push([lerp(x0, x1, u), f(u)]) } return pts
+}
+function nota(t, a = 1) { conAlfa(a, () => texto(t, W / 2, 820, { tam: 20, color: 'rgba(255,255,255,0.5)' })) }
+function diana(x, y, r, color, brillo) {
+  if (brillo > 0) {
+    const g = ctx.createRadialGradient(x, y, r * 0.2, x, y, r * 1.8)
+    g.addColorStop(0, `rgba(255,240,200,${0.45 * brillo})`); g.addColorStop(1, 'rgba(255,240,200,0)')
+    circulo(x, y, r * 1.8, g)
+  }
+  circulo(x, y, r, null, color, 10); circulo(x, y, r * 0.66, null, color, 10); circulo(x, y, r * 0.3, color)
+}
+
+// ---------- escenas ----------
+const CX = W / 2, CY = 520
+const VISUALES = {
+  'libro-reloj'(t, d) {
+    // reloj que gira rápido sobre un libro cuyas líneas se desvanecen
+    const vel = t * 4
+    circulo(CX, 330, 120, 'rgba(255,255,255,0.08)', BLANCO, 5)
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; linea([[CX + Math.cos(a) * 100, 330 + Math.sin(a) * 100], [CX + Math.cos(a) * 110, 330 + Math.sin(a) * 110]], BLANCO, 4) }
+    linea([[CX, 330], [CX + Math.cos(vel - 1.5) * 85, 330 + Math.sin(vel - 1.5) * 85]], P.acento, 7)
+    linea([[CX, 330], [CX + Math.cos(vel / 12 - 1.5) * 55, 330 + Math.sin(vel / 12 - 1.5) * 55]], BLANCO, 8)
+    circulo(CX, 330, 9, BLANCO)
+    // libro abierto
+    const by = 640
+    trasladar(CX, by, () => {
+      ctx.beginPath(); ctx.moveTo(0, -10); ctx.quadraticCurveTo(-120, -50, -240, -20); ctx.lineTo(-240, 150); ctx.quadraticCurveTo(-120, 120, 0, 160); ctx.closePath(); ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.fill()
+      ctx.beginPath(); ctx.moveTo(0, -10); ctx.quadraticCurveTo(120, -50, 240, -20); ctx.lineTo(240, 150); ctx.quadraticCurveTo(120, 120, 0, 160); ctx.closePath(); ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill()
+      const desvanecer = clamp(1 - prog(t, d * 0.35, d * 0.5))
+      for (let i = 0; i < 6; i++) {
+        conAlfa(lerp(0.12, 0.55, desvanecer), () => {
+          rr(-210, 4 + i * 22, 170 - (i % 3) * 25, 8, 4, P.a)
+          rr(30, 4 + i * 22, 170 - ((i + 1) % 3) * 25, 8, 4, P.a)
+        })
+      }
+    })
+    // signos de pregunta que flotan
+    const r = azar(3)
+    for (let i = 0; i < 6; i++) {
+      const ini = d * 0.45 + i * 0.35, k = prog(t, ini, 2.2)
+      if (k > 0 && k < 1) conAlfa(Math.sin(k * Math.PI), () => texto('?', CX - 180 + r() * 360, by - 40 - k * 220, { tam: 44 + r() * 24, peso: 600, color: P.acento, fuente: SERIF }))
+    }
+  },
+  'linea-baja'(t, d) {
+    const x0 = 130, x1 = 620, y0 = 260, y1 = 740
+    ejes(x0, y0, x1, y1, 'Tiempo en la tarea', 'Atención', prog(t, 0, 0.5))
+    const pts = curva(x0 + 10, x1 - 10, (u) => lerp(y0 + 60, y1 - 60, Math.pow(u, 1.4)) + Math.sin(u * 30) * 6)
+    const fin = linea(pts, P.acento, 8, salida(prog(t, 0.4, d * 0.7)))
+    if (fin) circulo(fin[0], fin[1], 12, P.acento)
+  },
+  'dos-lineas'(t, d) {
+    const x0 = 130, x1 = 620, y0 = 260, y1 = 740
+    ejes(x0, y0, x1, y1, 'Tiempo en la tarea', 'Rendimiento', 1)
+    const k = salida(prog(t, 0.3, d * 0.7))
+    linea(curva(x0 + 10, x1 - 10, (u) => lerp(y0 + 60, y1 - 60, Math.pow(u, 1.4))), P.gris, 6, k)
+    const plana = (u) => y0 + 70 + Math.pow(u, 1.2) * 70 - (Math.exp(-Math.pow((u - 0.38) * 14, 2)) + Math.exp(-Math.pow((u - 0.72) * 14, 2))) * 55
+    const fin = linea(curva(x0 + 10, x1 - 10, plana, 120), P.acento, 8, k)
+    if (fin) circulo(fin[0], fin[1], 12, P.acento)
+    for (const [u, i] of [[0.38, 0], [0.72, 1]]) {
+      const a = prog(t, 0.3 + d * 0.7 * u, 0.4)
+      const x = lerp(x0 + 10, x1 - 10, u)
+      conAlfa(a, () => { rr(x - 46, y0 - 6, 92, 34, 17, P.calido); texto('pausa', x, y0 + 18, { tam: 20, peso: 600, color: P.a }) })
+    }
+    conAlfa(prog(t, d * 0.5, 0.6), () => {
+      rr(150, 850, 24, 8, 4, P.acento); texto('Con pausas breves', 186, 860, { tam: 22, alinear: 'left' })
+      rr(420, 850, 24, 8, 4, P.gris); texto('Sin pausas', 456, 860, { tam: 22, alinear: 'left', color: SUAVE })
+    })
+  },
+  'meta-apaga'(t, d) {
+    const k = prog(t, 0.5, d * 0.8)
+    const color = `rgba(255,255,255,${lerp(1, 0.22, k)})`
+    diana(CX, CY - 20, 190, color, lerp(1, 0, k) * (0.8 + 0.2 * Math.sin(t * 3)))
+    conAlfa(lerp(1, 0.3, k), () => texto('Tu meta', CX, CY + 250, { tam: 34, peso: 600, fuente: SERIF }))
+    // pequeñas chispas que se van apagando
+    const r = azar(9)
+    for (let i = 0; i < 14; i++) {
+      const a = r() * Math.PI * 2, dist = 230 + r() * 60 + Math.sin(t * 2 + i) * 10
+      circulo(CX + Math.cos(a) * dist, CY - 20 + Math.sin(a) * dist, 5, `rgba(255,240,200,${(1 - k) * 0.8})`)
+    }
+  },
+  'meta-enciende'(t, d) {
+    const kp = prog(t, 0.3, 0.6)             // aparece la pausa
+    const ke = prog(t, d * 0.35, 1.2)        // se vuelve a encender
+    const color = ke > 0 ? P.acento : 'rgba(255,255,255,0.25)'
+    diana(CX, CY - 20, 190, color, salida(ke) * (0.85 + 0.15 * Math.sin(t * 4)))
+    // ondas
+    for (let i = 0; i < 3; i++) {
+      const k = prog(t, d * 0.35 + i * 0.45, 1.6)
+      if (k > 0 && k < 1) circulo(CX, CY - 20, 190 + k * 220, null, `rgba(255,255,255,${(1 - k) * 0.6})`, 4)
+    }
+    // ícono de pausa en el centro
+    conAlfa(kp * (1 - ke), () => { rr(CX - 34, CY - 70, 22, 100, 8, BLANCO); rr(CX + 12, CY - 70, 22, 100, 8, BLANCO) })
+    conAlfa(prog(t, d * 0.55, 0.6), () => {
+      rr(CX - 175, CY + 230, 350, 64, 32, P.calido)
+      texto('Siguiente paso  →', CX, CY + 272, { tam: 28, peso: 600, color: P.a })
+    })
+  },
+  'celular-notif'(t, d) {
+    const llegadas = [0.4, 1.4, 2.3, 3.1]
+    let vib = 0
+    for (const l of llegadas) { const k = t - l; if (k > 0 && k < 0.35) vib = Math.sin(k * 90) * 6 * (1 - k / 0.35) }
+    trasladar(CX + vib, CY, () => {
+      celular(0, 0, 280, 540)
+      llegadas.forEach((l, i) => {
+        const k = prog(t, l, 0.45)
+        burbuja(0, -170 + i * 76 + (1 - salida(k)) * -40, 230, i % 2 ? P.calido : BLANCO, k)
+      })
+    })
+    // campana
+    const gira = Math.sin(t * 12) * 0.25 * (vib !== 0 ? 1 : 0.2)
+    trasladar(CX + 190, CY - 250, () => {
+      ctx.beginPath(); ctx.moveTo(-30, 20); ctx.quadraticCurveTo(-30, -36, 0, -40); ctx.quadraticCurveTo(30, -36, 30, 20); ctx.closePath(); ctx.fillStyle = P.calido; ctx.fill()
+      circulo(0, 28, 9, P.calido)
+    }, 1, gira)
+  },
+  'tarea-celular'(t, d) {
+    // monitor con una tarea de atención
+    rr(CX - 250, 230, 500, 320, 22, 'rgba(255,255,255,0.08)', BLANCO, 5)
+    rr(CX - 60, 550, 120, 40, 6, 'rgba(255,255,255,0.5)')
+    const r = azar(5)
+    for (let i = 0; i < 8; i++) {
+      const x = CX - 200 + r() * 400, y = 270 + r() * 240, fase = (t * 1.3 + i * 0.37) % 2
+      const a = fase < 1 ? Math.sin(fase * Math.PI) : 0
+      circulo(x, y, 18, `rgba(207,230,180,${a})`)
+    }
+    texto('Tarea de atención', CX, 215, { tam: 22, color: SUAVE })
+    // celular que vibra con llamadas y mensajes
+    const fase = (t % 1.6)
+    const vib = fase < 0.4 ? Math.sin(fase * 80) * 5 : 0
+    trasladar(CX + 150 + vib, 760, () => {
+      celular(0, 0, 150, 270)
+      burbuja(0, -40, 120, P.calido, prog(t, 0.8, 0.4))
+      burbuja(0, 30, 120, BLANCO, prog(t, 2.2, 0.4))
+    }, 1, 0.12)
+    texto('llamadas y mensajes', CX - 120, 770, { tam: 24, color: SUAVE })
+  },
+  'barras-errores'(t, d) {
+    const datos = [['Sin celular', 0.32, P.gris], ['Llega una\nnotificación', 0.78, P.calido], ['Usa el\ncelular', 0.86, P.acento]]
+    const base = 700, alto = 400, ancho = 130
+    linea([[100, base], [620, base]], 'rgba(255,255,255,0.55)', 3)
+    texto('Errores en la tarea', CX, 250, { tam: 26, peso: 600, color: SUAVE })
+    datos.forEach(([et, v, color], i) => {
+      const x = 145 + i * 170, k = rebote(prog(t, 0.3 + i * 0.7, 0.8))
+      rr(x, base - alto * v * k, ancho, alto * v * k, 14, color)
+      et.split('\n').forEach((l, j) => texto(l, x + ancho / 2, base + 40 + j * 30, { tam: 23, color: BLANCO }))
+    })
+    nota('Ilustración de la idea, no datos exactos del estudio', prog(t, 1, 0.6))
+  },
+  'pensamientos'(t, d) {
+    // cabeza de perfil
+    trasladar(250, 560, () => {
+      const piel = 'rgba(255,255,255,0.9)'
+      rr(-130, 60, 260, 130, 60, piel)                  // hombros
+      rr(-34, 0, 68, 80, 20, piel)                      // cuello
+      circulo(0, -60, 95, piel)                         // cabeza
+    })
+    // burbujas de pensamiento que se alejan
+    const r = azar(11)
+    for (let i = 0; i < 7; i++) {
+      const ini = 0.3 + i * (d / 8), k = prog(t, ini, d * 0.55)
+      if (k <= 0) continue
+      const x = lerp(330, 360 + r() * 260, salida(k)), y = lerp(520, 190 + r() * 120, salida(k))
+      const rad = lerp(12, 34 + r() * 40, salida(k))
+      conAlfa(1 - k * 0.6, () => {
+        circulo(x, y, rad, i % 2 ? P.acento : P.calido)
+        if (rad > 30) { circulo(x - rad * 0.3, y, 5, P.a); circulo(x, y, 5, P.a); circulo(x + rad * 0.3, y, 5, P.a) }
+      })
+    }
+    // la tarea se queda sola
+    conAlfa(lerp(1, 0.3, prog(t, 0.5, d * 0.7)), () => {
+      rr(160, 790, 180, 56, 14, null, BLANCO, 3)
+      texto('Tu tarea', 250, 827, { tam: 24, peso: 600 })
+    })
+  },
+  'no-molestar'(t, d) {
+    const ko = salida(prog(t, d * 0.25, 0.6))
+    // interruptor
+    rr(CX - 130, 300, 260, 130, 65, ko > 0.5 ? P.acento : 'rgba(255,255,255,0.25)')
+    const kx = lerp(CX - 65, CX + 65, ko)
+    circulo(kx, 365, 52, BLANCO)
+    trasladar(kx, 365, () => luna(0, 0, 26, P.a))
+    texto('No molestar', CX, 500, { tam: 40, peso: 600, fuente: SERIF })
+    conAlfa(ko, () => texto('Activado', CX, 545, { tam: 26, color: P.acento }))
+    // burbujas que desaparecen
+    const r = azar(21)
+    for (let i = 0; i < 6; i++) {
+      const x = 110 + (i % 3) * 250 + r() * 30, y0 = 660 + Math.floor(i / 3) * 110
+      const caida = prog(t, d * 0.25 + i * 0.12, 0.8)
+      burbuja(x, y0 + caida * 120, 200, i % 2 ? P.calido : BLANCO, 1 - caida)
+    }
+  },
+  'celular-sin-datos'(t, d) {
+    trasladar(CX, CY, () => celular(0, 0, 300, 560))
+    ondasWifi(CX, CY + 30, 110, BLANCO)
+    tache(CX, CY - 20, 190, P.calido, prog(t, 0.8, 0.8))
+    conAlfa(prog(t, 1.5, 0.5), () => { rr(CX - 110, CY + 320, 220, 60, 30, P.calido); texto('14 días', CX, CY + 360, { tam: 30, peso: 600, color: P.a }) })
+  },
+  'permitido'(t, d) {
+    const filas = [['Llamadas', true], ['Mensajes de texto', true], ['Internet en el celular', false]]
+    filas.forEach(([et, si], i) => {
+      const k = salida(prog(t, 0.3 + i * (d * 0.22), 0.5)), y = 330 + i * 150
+      conAlfa(k, () => trasladar((1 - k) * 60, 0, () => {
+        rr(90, y - 55, 540, 110, 26, 'rgba(255,255,255,0.1)')
+        texto(et, 130, y + 11, { tam: 32, peso: 600, alinear: 'left' })
+        circulo(570, y, 34, si ? P.acento : P.calido)
+        if (si) palomita(570, y, 34, P.a, prog(t, 0.6 + i * (d * 0.22), 0.4))
+        else tache(570, y, 26, P.a, prog(t, 0.6 + i * (d * 0.22), 0.4))
+      }))
+    })
+  },
+  'calendario'(t, d) {
+    texto('2 semanas', CX, 250, { tam: 34, peso: 600, fuente: SERIF })
+    for (let i = 0; i < 14; i++) {
+      const c = i % 7, f = Math.floor(i / 7), x = 105 + c * 75, y = 290 + f * 85
+      const k = prog(t, 0.3 + i * (d * 0.45 / 14), 0.3)
+      rr(x, y, 62, 70, 12, k > 0 ? `rgba(196,236,238,${0.25 + 0.75 * k})` : 'rgba(255,255,255,0.1)')
+      texto(String(i + 1), x + 31, y + 45, { tam: 24, peso: 600, color: k > 0.5 ? P.a : SUAVE })
+    }
+    const kg = prog(t, d * 0.55, 0.8)
+    conAlfa(kg, () => {
+      ;[['Atención sostenida', 0], ['Bienestar', 1]].forEach(([et, i]) => {
+        const y = 560 + i * 120
+        texto(et, 110, y + 10, { tam: 28, peso: 600, alinear: 'left' })
+        const subir = salida(prog(t, d * 0.55 + i * 0.3, 1))
+        trasladar(560, y - subir * 18, () => {
+          ctx.beginPath(); ctx.moveTo(0, -30); ctx.lineTo(28, 6); ctx.lineTo(10, 6); ctx.lineTo(10, 30); ctx.lineTo(-10, 30); ctx.lineTo(-10, 6); ctx.lineTo(-28, 6); ctx.closePath(); ctx.fillStyle = P.calido; ctx.fill()
+        })
+      })
+    })
+  },
+  'puntos'(t, d) {
+    const total = 467, logrados = 119, cols = 22
+    const tam = 22, x0 = CX - (cols * tam) / 2 + tam / 2, y0 = 230
+    const orden = Array.from({ length: total }, (_, i) => i)
+    const r = azar(119); for (let i = total - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [orden[i], orden[j]] = [orden[j], orden[i]] }
+    const elegidos = new Set(orden.slice(0, logrados))
+    const kAparece = prog(t, 0, 1.2), kLogra = prog(t, 1.2, d * 0.55)
+    for (let i = 0; i < total; i++) {
+      const x = x0 + (i % cols) * tam, y = y0 + Math.floor(i / cols) * tam
+      if (i / total > kAparece) continue
+      const encendido = elegidos.has(i) && orden.indexOf(i) / logrados < kLogra
+      circulo(x, y, 7.5, encendido ? P.calido : 'rgba(255,255,255,0.3)')
+    }
+    const n = Math.round(logrados * kLogra)
+    texto(`${n}`, CX - 40, 800, { tam: 72, peso: 700, alinear: 'right', color: P.calido })
+    texto(`de ${total}`, CX - 20, 800, { tam: 40, peso: 500, alinear: 'left' })
+    conAlfa(kLogra, () => texto('cumplieron el reto', CX, 845, { tam: 24, color: SUAVE }))
+  },
+  'reloj-pequeno'(t, d) {
+    const k = salida(prog(t, 0.4, d * 0.5))
+    circulo(CX, CY - 40, 200, 'rgba(255,255,255,0.08)', BLANCO, 5)
+    ctx.beginPath(); ctx.moveTo(CX, CY - 40); ctx.arc(CX, CY - 40, 185, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * 0.25 * k); ctx.closePath(); ctx.fillStyle = P.calido; ctx.fill()
+    for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; circulo(CX + Math.cos(a) * 170, CY - 40 + Math.sin(a) * 170, 5, BLANCO) }
+    circulo(CX, CY - 40, 12, BLANCO)
+    conAlfa(prog(t, d * 0.5, 0.6), () => {
+      rr(CX - 190, CY + 210, 380, 70, 35, 'rgba(255,255,255,0.12)')
+      texto('Un rato al día, sin datos', CX, CY + 255, { tam: 28, peso: 600 })
+    })
+  },
+  'dos-caminos'(t, d) {
+    const k = salida(prog(t, 0.2, 1.4))
+    linea([[CX, 830], [CX, 620]], 'rgba(255,255,255,0.8)', 26, k * 2)
+    linea([[CX, 620], [CX - 50, 560], [200, 430]], 'rgba(255,255,255,0.8)', 22, clamp(k * 2 - 1))
+    linea([[CX, 620], [CX + 50, 560], [520, 430]], 'rgba(255,255,255,0.8)', 22, clamp(k * 2 - 1))
+    // parque a la izquierda
+    arbol(110, 400, 140, '#5b3d2a', P.acento, prog(t, 1.2, 1.4), Math.sin(t * 2) * 0.04)
+    arbol(205, 380, 170, '#5b3d2a', '#9cc58a', prog(t, 1.4, 1.4), Math.sin(t * 2 + 1) * 0.04)
+    arbol(295, 400, 120, '#5b3d2a', P.acento, prog(t, 1.6, 1.4), Math.sin(t * 2 + 2) * 0.04)
+    // ciudad a la derecha
+    edificio(420, 400, 70, 170, 'rgba(255,255,255,0.6)', prog(t, 1.3, 1.2))
+    edificio(500, 400, 80, 240, 'rgba(255,255,255,0.8)', prog(t, 1.5, 1.2))
+    edificio(590, 400, 70, 190, 'rgba(255,255,255,0.65)', prog(t, 1.7, 1.2))
+    conAlfa(prog(t, 2, 0.6), () => { texto('Parque', 115, 480, { tam: 30, peso: 600 }); texto('Ciudad', 605, 480, { tam: 30, peso: 600 }) })
+  },
+  'caminata'(t, d) {
+    // arriba: parque, abajo: ciudad
+    rr(60, 200, 600, 300, 28, 'rgba(255,255,255,0.08)')
+    rr(60, 540, 600, 300, 28, 'rgba(255,255,255,0.08)')
+    texto('Parque', 90, 245, { tam: 26, peso: 600, alinear: 'left' })
+    texto('Ciudad', 90, 585, { tam: 26, peso: 600, alinear: 'left' })
+    for (let i = 0; i < 5; i++) arbol(130 + i * 115, 460, 120 + (i % 2) * 30, '#5b3d2a', i % 2 ? P.acento : '#9cc58a', 1, Math.sin(t * 2 + i) * 0.05)
+    for (let i = 0; i < 6; i++) edificio(85 + i * 95, 800, 78, 140 + ((i * 53) % 90), `rgba(255,255,255,${0.4 + (i % 3) * 0.15})`, 1)
+    // autos
+    for (let i = 0; i < 2; i++) { const x = ((t * 140 + i * 330) % 760) - 60; rr(x, 805, 70, 26, 10, P.calido) }
+    // personas caminando
+    const avance = (u) => 100 + ((t * 60 + u) % 520)
+    for (const [y, x] of [[470, avance(0)], [835, avance(200)]]) {
+      const paso = Math.sin(t * 10) * 4
+      circulo(x, y - 52 + paso * 0.2, 14, BLANCO)
+      linea([[x, y - 36], [x, y - 8]], BLANCO, 8)
+      linea([[x, y - 8], [x - 8 + paso, y + 12]], BLANCO, 7)
+      linea([[x, y - 8], [x + 8 - paso, y + 12]], BLANCO, 7)
+    }
+  },
+  'barras-parque'(t, d) {
+    const base = 700, alto = 380
+    linea([[120, base], [600, base]], 'rgba(255,255,255,0.55)', 3)
+    texto('Pruebas de atención y memoria', CX, 250, { tam: 26, peso: 600, color: SUAVE })
+    const barras = [['Después de\nla ciudad', 0.45, P.gris, 180], ['Después del\nparque', 0.85, P.acento, 400]]
+    barras.forEach(([et, v, color, x], i) => {
+      const k = rebote(prog(t, 0.3 + i * 0.8, 0.9))
+      rr(x, base - alto * v * k, 140, alto * v * k, 16, color)
+      et.split('\n').forEach((l, j) => texto(l, x + 70, base + 40 + j * 30, { tam: 23 }))
+    })
+    conAlfa(prog(t, 1.6, 0.4), () => arbol(470, base - alto * 0.85 - 20, 90, '#5b3d2a', '#9cc58a', 1, Math.sin(t * 2) * 0.05))
+    nota('Ilustración de la idea, no datos exactos del estudio', prog(t, 1, 0.6))
+  },
+  'fotos'(t, d) {
+    const fotos = [[-0.12, CX - 120, 430], [0.08, CX + 110, 470], [-0.03, CX, 620]]
+    fotos.forEach(([giro, x, y], i) => {
+      const k = salida(prog(t, 0.2 + i * 0.6, 0.7))
+      if (k <= 0) return
+      trasladar(x, y + (1 - k) * 300, () => {
+        rr(-150, -130, 300, 280, 10, BLANCO)
+        rr(-130, -110, 260, 200, 4, '#a9d4e4')
+        ctx.beginPath(); ctx.moveTo(-130, 60); ctx.quadraticCurveTo(-40, -10, 40, 40); ctx.quadraticCurveTo(90, 10, 130, 30); ctx.lineTo(130, 90); ctx.lineTo(-130, 90); ctx.closePath(); ctx.fillStyle = '#6fae6a'; ctx.fill()
+        arbol(60, 50, 90, '#5b3d2a', '#3f7d4f', 1, Math.sin(t * 2 + i) * 0.04)
+        circulo(-80, -70, 18, '#ffe08a')
+      }, 1, giro * k)
+    })
+  },
+  'arbol-crece'(t, d) {
+    const k = prog(t, 0.2, d * 0.6)
+    linea([[100, 760], [620, 760]], 'rgba(255,255,255,0.5)', 4)
+    arbol(CX, 760, 460, '#6b4a33', P.acento, k, Math.sin(t * 1.5) * 0.02)
+    // sol / reloj pequeño "corto plazo"
+    conAlfa(prog(t, d * 0.55, 0.6), () => {
+      circulo(570, 260, 56, P.calido)
+      linea([[570, 260], [570, 228]], P.a, 6); linea([[570, 260], [592, 270]], P.a, 6)
+      texto('corto plazo', 570, 350, { tam: 24, color: SUAVE })
+    })
+  },
+  'luna-seis'(t, d) {
+    const r = azar(4)
+    for (let i = 0; i < 26; i++) circulo(80 + r() * 560, 200 + r() * 600, 2 + r() * 3, `rgba(255,255,255,${0.3 + 0.5 * Math.abs(Math.sin(t * 1.5 + i))})`)
+    const k = salida(prog(t, 0.1, 1))
+    luna(CX - 20, CY - 60, 150 * k, P.calido)
+    conAlfa(prog(t, 0.8, 0.5), () => texto('6 h', CX + 40, CY + 210, { tam: 120, peso: 700, fuente: SERIF }))
+    conAlfa(prog(t, d * 0.55, 0.4), () => texto('¿Seguro?', CX + 40, CY + 290, { tam: 40, color: P.acento, fuente: SERIF }))
+  },
+  'tres-grupos'(t, d) {
+    const base = 720
+    ;[[4, 170], [6, 360], [8, 550]].forEach(([h, x], i) => {
+      const k = rebote(prog(t, 0.3 + i * 0.5, 0.8))
+      rr(x - 60, base - h * 52 * k, 120, h * 52 * k, 16, i === 2 ? P.acento : P.calido)
+      trasladar(x, base - h * 52 * k - 50, () => luna(0, 0, 26 * k, BLANCO))
+      texto(`${h} h`, x, base + 50, { tam: 34, peso: 700 })
+    })
+    linea([[90, base], [630, base]], 'rgba(255,255,255,0.55)', 3)
+    conAlfa(prog(t, 1.8, 0.5), () => texto('por noche, durante 14 noches', CX, base + 100, { tam: 24, color: SUAVE }))
+  },
+  'acumular'(t, d) {
+    const x0 = 130, x1 = 620, y0 = 260, y1 = 720
+    ejes(x0, y0, x1, y1, 'Noches', 'Fallos de atención', 1)
+    const k = salida(prog(t, 0.3, d * 0.75))
+    const series = [[8, (u) => y1 - 40 - u * 15, P.acento], [6, (u) => y1 - 40 - Math.pow(u, 0.9) * 260, P.calido], [4, (u) => y1 - 40 - Math.pow(u, 0.85) * 380, '#ff9b7a']]
+    series.forEach(([h, f, color], i) => {
+      const fin = linea(curva(x0 + 20, x1 - 20, f), color, 7, k)
+      if (fin) { circulo(fin[0], fin[1], 10, color); conAlfa(k, () => texto(`${h} h`, fin[0] + 4, fin[1] - 20, { tam: 24, peso: 700, color })) }
+    })
+    nota('Ilustración de la tendencia, no datos exactos', prog(t, 1, 0.6))
+  },
+  'equivalencia'(t, d) {
+    // 14 lunas pequeñas = 2 noches sin dormir
+    for (let i = 0; i < 14; i++) {
+      const k = prog(t, 0.2 + i * 0.08, 0.4)
+      const x = 110 + (i % 5) * 52, y = 360 + Math.floor(i / 5) * 62
+      trasladar(x, y, () => luna(0, 0, 20 * rebote(k), P.calido))
+    }
+    conAlfa(prog(t, 0.4, 0.5), () => { texto('6 h', 210, 300, { tam: 34, peso: 700 }); texto('× 14 noches', 210, 600, { tam: 26, color: SUAVE }) })
+    conAlfa(prog(t, 1.6, 0.5), () => texto('≈', CX + 15, 470, { tam: 90, peso: 300 }))
+    const k2 = prog(t, 2.2, 0.6)
+    ;[0, 1].forEach((i) => {
+      const x = 500 + i * 110, y = 440
+      conAlfa(k2, () => {
+        circulo(x, y, 44, 'rgba(255,255,255,0.15)', BLANCO, 3)
+        circulo(x - 14, y - 4, 7, BLANCO); circulo(x + 14, y - 4, 7, BLANCO)
+        linea([[x - 12, y + 20], [x + 12, y + 20]], BLANCO, 4)
+      })
+    })
+    conAlfa(k2, () => { texto('hasta 2 noches', 555, 540, { tam: 26, peso: 600 }); texto('sin dormir', 555, 572, { tam: 26, peso: 600 }) })
+  },
+  'sentir-vs-estar'(t, d) {
+    const medidor = (x, et, valor, color, ini) => {
+      const k = salida(prog(t, ini, 1.2))
+      ctx.beginPath(); ctx.arc(x, 560, 130, Math.PI, Math.PI * 2); ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 26; ctx.lineCap = 'round'; ctx.stroke()
+      ctx.beginPath(); ctx.arc(x, 560, 130, Math.PI, Math.PI + Math.PI * valor * k); ctx.strokeStyle = color; ctx.lineWidth = 26; ctx.stroke()
+      const a = Math.PI + Math.PI * valor * k
+      linea([[x, 560], [x + Math.cos(a) * 100, 560 + Math.sin(a) * 100]], BLANCO, 7)
+      circulo(x, 560, 12, BLANCO)
+      et.split('\n').forEach((l, j) => texto(l, x, 640 + j * 34, { tam: 28, peso: 600 }))
+    }
+    medidor(190, 'Cómo se\nsentían', 0.62, P.acento, 0.3)
+    medidor(530, 'Cómo\nrendían', 0.2, '#ff9b7a', 1.0)
+    nota('Ilustración de la idea, no datos exactos', prog(t, 1.4, 0.6))
+  },
+}
+
+// ---------- título y cierre ----------
+function dibujarTitulo(t, d) {
+  const fuenteT = `600 60px ${SERIF}`
+  const primera = 560 - (partirLineas(V.titulo, 600, fuenteT).length - 1) * 36
+  conAlfa(prog(t, 0.1, 0.6), () => texto('PAUSA · TU CEREBRO', CX, primera - 80, { tam: 22, peso: 600, color: P.acento }))
+  for (let i = 0; i < 3; i++) {
+    const kk = ((t * 0.35 + i / 3) % 1)
+    circulo(CX, 560, 140 + kk * 260, null, `rgba(255,255,255,${(1 - kk) * 0.25})`, 3)
+  }
+  const fuente = `600 60px ${SERIF}`
+  const lineas = partirLineas(V.titulo, 600, fuente)
+  let n = 0
+  lineas.forEach((l, i) => {
+    const y = 560 - (lineas.length - 1) * 36 + i * 74
+    // palabra por palabra
+    ctx.font = fuente
+    const palabras = l.split(' ')
+    let x = CX - ctx.measureText(l).width / 2
+    palabras.forEach((p) => {
+      const kp = salida(prog(t, 0.3 + n * 0.09, 0.45)); n++
+      conAlfa(kp, () => texto(p, x, y + (1 - kp) * 24, { tam: 60, peso: 600, fuente: SERIF, alinear: 'left' }))
+      x += ctx.measureText(p + ' ').width
+    })
+  })
+}
+
+function dibujarFuente(t, d) {
+  const k = salida(prog(t, 0.1, 0.7))
+  conAlfa(k, () => trasladar(0, (1 - k) * 40, () => {
+    texto('Basado en', CX, 330, { tam: 26, color: SUAVE })
+    rr(70, 370, 580, 330, 30, 'rgba(255,255,255,0.12)')
+    // ícono libro
+    trasladar(CX, 440, () => {
+      ctx.beginPath(); ctx.moveTo(0, -16); ctx.quadraticCurveTo(-30, -30, -60, -22); ctx.lineTo(-60, 30); ctx.quadraticCurveTo(-30, 22, 0, 36); ctx.quadraticCurveTo(30, 22, 60, 30); ctx.lineTo(60, -22); ctx.quadraticCurveTo(30, -30, 0, -16); ctx.closePath(); ctx.fillStyle = P.acento; ctx.fill()
+    })
+    const lineas = partirLineas(V.fuente.titulo, 520, `600 44px ${SERIF}`)
+    lineas.forEach((l, i) => texto(l, CX, 535 + i * 52, { tam: 44, peso: 600, fuente: SERIF }))
+    texto(`${V.fuente.autores} · ${V.fuente.anio}`, CX, 560 + lineas.length * 52, { tam: 26, color: SUAVE })
+  }))
+  const k2 = salida(prog(t, 1.2, 0.6))
+  conAlfa(k2, () => {
+    rr(CX - 250, 760, 500, 76, 38, P.calido)
+    texto('Lee la explicación en Pausa  →', CX, 808, { tam: 28, peso: 600, color: P.a })
+  })
+}
+
+// ---------- fondo, marca y subtítulos ----------
+function fondo(t) {
+  const g = ctx.createLinearGradient(0, 0, 0, H)
+  g.addColorStop(0, P.a); g.addColorStop(1, P.b)
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+  // manchas de luz que se mueven despacio
+  const manchas = [[0.2, 0.25, 380, 0.13], [0.85, 0.55, 420, 0.1], [0.4, 0.9, 360, 0.12]]
+  manchas.forEach(([x, y, r, a], i) => {
+    const mx = x * W + Math.sin(t * 0.3 + i * 2) * 60, my = y * H + Math.cos(t * 0.25 + i) * 50
+    const rg = ctx.createRadialGradient(mx, my, 0, mx, my, r)
+    rg.addColorStop(0, hexAlfa(P.mancha, a)); rg.addColorStop(1, hexAlfa(P.mancha, 0))
+    ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H)
+  })
+  // partículas que suben
+  const r = azar(77)
+  for (let i = 0; i < 18; i++) {
+    const x = r() * W, vel = 14 + r() * 20, y = H - ((t * vel + r() * H) % H)
+    circulo(x, y, 1.5 + r() * 2.5, `rgba(255,255,255,${0.12 + r() * 0.18})`)
+  }
+}
+function hexAlfa(hex, a) {
+  const n = parseInt(hex.slice(1), 16)
+  return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`
+}
+function marca() {
+  circulo(58, 70, 20, BLANCO)
+  rr(50, 61, 5, 18, 2, P.a); rr(61, 61, 5, 18, 2, P.a)
+  texto('pausa', 88, 80, { tam: 30, peso: 600, alinear: 'left' })
+  ctx.font = `600 30px ${SANS}`
+  texto('.', 88 + ctx.measureText('pausa').width + 1, 80, { tam: 30, peso: 700, alinear: 'left', color: P.calido })
+}
+
+const FUENTE_SUB = `600 36px ${SANS}`
+function prepararSubtitulos(seg) {
+  // parte el texto en pedazos de máximo 2 líneas y les reparte el tiempo de la voz
+  const piezas = seg.texto.split(/(?<=[.,:;?!»])\s+/)
+  const bloques = []
+  for (const p of piezas) {
+    const ultimo = bloques[bloques.length - 1]
+    if (ultimo && partirLineas(ultimo + ' ' + p, 600, FUENTE_SUB).length <= 2) bloques[bloques.length - 1] = ultimo + ' ' + p
+    else bloques.push(p)
+  }
+  // por si un pedazo solo ocupa más de 2 líneas, lo parte por palabras
+  const finales = []
+  for (const b of bloques) {
+    const lineas = partirLineas(b, 600, FUENTE_SUB)
+    for (let i = 0; i < lineas.length; i += 2) finales.push(lineas.slice(i, i + 2).join(' '))
+  }
+  const total = finales.reduce((s, b) => s + b.length, 0)
+  let t = seg.inicioVoz
+  const dur = seg.finVoz - seg.inicioVoz
+  return finales.map((b) => { const d = dur * b.length / total; const s = { ini: t, fin: t + d, texto: b }; t += d; return s })
+}
+function subtitulos(t) {
+  for (const s of SUBS) {
+    if (t < s.ini - 0.05 || t > s.fin + 0.35) continue
+    const a = Math.min(prog(t, s.ini - 0.05, 0.15), 1 - prog(t, s.fin + 0.2, 0.15))
+    const lineas = partirLineas(s.texto, 600, FUENTE_SUB)
+    const alto = lineas.length * 48 + 30
+    const y = 1000 - alto / 2
+    ctx.font = FUENTE_SUB
+    const ancho = Math.max(...lineas.map((l) => ctx.measureText(l).width)) + 48
+    conAlfa(a, () => {
+      rr(CX - ancho / 2, y, ancho, alto, 20, 'rgba(0,0,0,0.45)')
+      lineas.forEach((l, i) => texto(l, CX, y + 50 + i * 48, { tam: 36, peso: 600 }))
+    })
+  }
+}
+
+let SUBS = []
+window.preparar = async function (video) {
+  V = video; P = PALETAS[video.color]
+  await document.fonts.load(`600 60px Gelasio`)
+  await document.fonts.load(`600 36px Inter`)
+  await document.fonts.load(`500 30px Inter`)
+  await document.fonts.load(`700 30px Inter`)
+  SUBS = V.segmentos.filter((s) => s.tipo !== 'titulo' && s.tipo !== 'fuente').flatMap(prepararSubtitulos)
+  return { duracion: V.duracion, subtitulos: SUBS.length }
+}
+
+window.dibujar = function (t) {
+  ctx.save()
+  fondo(t)
+  const seg = V.segmentos.find((s) => t >= s.inicio && t < s.fin) ?? V.segmentos[V.segmentos.length - 1]
+  const lt = t - seg.inicio, d = seg.fin - seg.inicio
+  const alfa = Math.min(prog(lt, 0, 0.4), 1 - prog(lt, d - 0.3, 0.3))
+  conAlfa(alfa, () => trasladar(CX, CY, () => trasladar(-CX, -CY, () => {
+    if (seg.tipo === 'titulo') dibujarTitulo(lt, d)
+    else if (seg.tipo === 'fuente') dibujarFuente(lt, d)
+    else VISUALES[seg.tipo](lt, d)
+  }), lerp(0.96, 1, salida(prog(lt, 0, 0.5)))))
+  if (seg.tipo !== 'titulo') marca()
+  subtitulos(t)
+  ctx.restore()
+}
+</script>
+</body>
+</html>
