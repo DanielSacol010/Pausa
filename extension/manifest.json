@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Pausa",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Bloquea los sitios que distraen mientras tienes una sesión de enfoque abierta en Pausa.",
   "permissions": [
     "declarativeNetRequest",
@@ -19,6 +19,7 @@
   "content_scripts": [
     {
       "matches": [
+        "https://web-two-dun-16.vercel.app/*",
         "http://localhost:5173/*",
         "http://127.0.0.1:5173/*"
       ],

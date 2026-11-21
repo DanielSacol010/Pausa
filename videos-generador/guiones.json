@@ -1,0 +1,180 @@
+[
+  {
+    "id": "estudiar-no-puedo",
+    "titulo": "¿Qué pasa en tu cerebro cuando quieres estudiar, pero no puedes?",
+    "estudio": "pausas-breves",
+    "color": "verde",
+    "fuente": {
+      "autores": "Ariga y Lleras",
+      "anio": 2011,
+      "titulo": "Pausas pequeñas en tareas largas",
+      "voz": "Basado en el estudio de Ariga y Lleras, de dos mil once. Lee la explicación en Pausa."
+    },
+    "escenas": [
+      {
+        "texto": "Llevas mucho rato con el mismo tema, y de pronto ya no te entra nada.",
+        "visual": "libro-reloj"
+      },
+      {
+        "texto": "En un experimento, la atención de las personas fue bajando durante una tarea larga.",
+        "visual": "linea-baja"
+      },
+      {
+        "texto": "Pero el grupo que cambió brevemente de objetivo un par de veces mantuvo su rendimiento.",
+        "visual": "dos-lineas"
+      },
+      {
+        "texto": "Los autores lo explican así: el cerebro deja de notar una meta que lleva mucho tiempo activa.",
+        "visual": "meta-apaga"
+      },
+      {
+        "texto": "Una pausa corta la vuelve a encender. Detente, respira y regresa con el siguiente paso claro.",
+        "visual": "meta-enciende"
+      }
+    ]
+  },
+  {
+    "id": "celular-sin-tocar",
+    "titulo": "¿Por qué el celular te distrae aunque no lo toques?",
+    "estudio": "notificaciones",
+    "color": "naranja",
+    "fuente": {
+      "autores": "Stothart, Mitchum y Yehnert",
+      "anio": 2015,
+      "titulo": "El costo de una notificación",
+      "voz": "Basado en el estudio de Stothart, Mitchum y Yehnert, de dos mil quince. Lee la explicación en Pausa."
+    },
+    "escenas": [
+      {
+        "texto": "Te llega una notificación. No la abres. ¿Ya no te distrajo?",
+        "visual": "celular-notif",
+        "voz": "Te llega una notificación, no la abres. ¿Ya no te distrajo?"
+      },
+      {
+        "texto": "En un experimento, las personas hacían una tarea que exige mucha atención, mientras su celular recibía llamadas y mensajes.",
+        "visual": "tarea-celular"
+      },
+      {
+        "texto": "Solo recibir la notificación empeoró su rendimiento, casi tanto como contestar el teléfono.",
+        "visual": "barras-errores"
+      },
+      {
+        "texto": "La notificación hace que tu mente se vaya a otros pensamientos.",
+        "visual": "pensamientos"
+      },
+      {
+        "texto": "Mientras estudias, activa el modo No molestar.",
+        "visual": "no-molestar"
+      }
+    ]
+  },
+  {
+    "id": "dos-semanas",
+    "titulo": "Tips rápidos para tu atención: el reto de dos semanas",
+    "estudio": "internet-movil",
+    "color": "azul",
+    "fuente": {
+      "autores": "Castelo y colaboradores",
+      "anio": 2025,
+      "titulo": "Menos conexión constante, más atención",
+      "voz": "Basado en el estudio de Castelo y colaboradores, de dos mil veinticinco. Lee la explicación en Pausa."
+    },
+    "escenas": [
+      {
+        "texto": "¿Y si tu celular no tuviera internet durante dos semanas?",
+        "visual": "celular-sin-datos"
+      },
+      {
+        "texto": "Llamadas y mensajes de texto, sí. Internet en el celular, no.",
+        "visual": "permitido"
+      },
+      {
+        "texto": "En un estudio de 2025, quienes lo hicieron mantuvieron mejor la atención y dijeron sentirse mejor.",
+        "voz": "En un estudio de dos mil veinticinco, quienes lo hicieron mantuvieron mejor la atención y dijeron sentirse mejor.",
+        "visual": "calendario"
+      },
+      {
+        "texto": "Pero cumplirlo fue difícil: solo 119 de 467 personas lo lograron.",
+        "voz": "Pero cumplirlo fue difícil: solo ciento diecinueve de cuatrocientas sesenta y siete personas lo lograron.",
+        "visual": "puntos"
+      },
+      {
+        "texto": "Así que empieza pequeño: un rato al día sin datos mientras estudias.",
+        "visual": "reloj-pequeno"
+      }
+    ]
+  },
+  {
+    "id": "caminar-arboles",
+    "titulo": "¿Por qué caminar entre árboles te ayuda a concentrarte?",
+    "estudio": "naturaleza",
+    "color": "verde",
+    "fuente": {
+      "autores": "Berman, Jonides y Kaplan",
+      "anio": 2008,
+      "titulo": "Un respiro en la naturaleza",
+      "voz": "Basado en el estudio de Berman, Jonides y Kaplan, de dos mil ocho. Lee la explicación en Pausa."
+    },
+    "escenas": [
+      {
+        "texto": "Un experimento comparó dos caminatas.",
+        "visual": "dos-caminos"
+      },
+      {
+        "texto": "Unas personas caminaron por un parque con árboles. Otras, por calles de la ciudad.",
+        "visual": "caminata"
+      },
+      {
+        "texto": "Después del parque, rindieron mejor en pruebas de atención y memoria.",
+        "visual": "barras-parque"
+      },
+      {
+        "texto": "Incluso ver fotos de naturaleza ayudó un poco.",
+        "visual": "fotos"
+      },
+      {
+        "texto": "Es un efecto de corto plazo, pero una caminata antes de estudiar puede ayudarte.",
+        "visual": "arbol-crece"
+      }
+    ]
+  },
+  {
+    "id": "seis-horas",
+    "titulo": "Dormir 6 horas: ¿alcanza?",
+    "voz": "Dormir seis horas, ¿alcanza?",
+    "estudio": "sueno",
+    "color": "noche",
+    "fuente": {
+      "autores": "Van Dongen y colaboradores",
+      "anio": 2003,
+      "titulo": "El descanso también cuenta",
+      "voz": "Basado en el estudio de Van Dongen y colaboradores, de dos mil tres. Lee la explicación en Pausa."
+    },
+    "escenas": [
+      {
+        "texto": "«Con 6 horas estoy bien». ¿Seguro?",
+        "voz": "Con seis horas estoy bien, ¿seguro?",
+        "visual": "luna-seis"
+      },
+      {
+        "texto": "En un estudio, limitaron el sueño a 4, 6 u 8 horas por noche durante dos semanas.",
+        "voz": "En un estudio, limitaron el sueño a cuatro, seis u ocho horas por noche, durante dos semanas.",
+        "visual": "tres-grupos"
+      },
+      {
+        "texto": "Con 4 y 6 horas, los fallos de atención aumentaron noche tras noche.",
+        "voz": "Con cuatro y seis horas, los fallos de atención aumentaron noche tras noche.",
+        "visual": "acumular"
+      },
+      {
+        "texto": "Al final, dormir 6 horas o menos los dejaba casi como si hubieran pasado hasta dos noches sin dormir.",
+        "voz": "Al final, dormir seis horas o menos los dejaba casi como si hubieran pasado hasta dos noches sin dormir.",
+        "visual": "equivalencia"
+      },
+      {
+        "texto": "Y lo peor: no se sentían tan cansados como en realidad estaban.",
+        "visual": "sentir-vs-estar"
+      }
+    ]
+  }
+]

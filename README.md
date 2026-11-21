@@ -1,18 +1,27 @@
 # Pausa
 
-Desintoxicación tecnológica. Aplicación diseñada por el grupo 3DE para el
-Build & Pitch de Open2.
-
 Aplicación web para enfocarse al estudiar o trabajar. Durante una sesión, una
 extensión de Chrome bloquea los sitios que más distraen.
 
-Este repo tiene lo de las **Fases 0, 1 y 2** del plan:
+Este repo tiene las **Fases 0, 1 y 2** del plan y una **demo de la Fase 3**:
 
-- `web/`: la app web (React + Vite + Tailwind). Temporizador, intención de la
-  sesión, pantalla completa, conteo de salidas de la pestaña, resumen,
-  historial y descanso.
+- `web/`: la app web (React + Vite + Tailwind) con cuatro módulos:
+  - **Sesión de enfoque:** temporizador, intención, pantalla completa, conteo
+    de salidas de la pestaña, resumen, historial y descanso.
+  - **Videos:** feed vertical 9:16 estilo TikTok con 5 videos (MP4 en
+    `web/public/videos`) con figuras animadas, voz y subtítulos. Controles de
+    reproducir, pausar, reiniciar, sonido y barra para adelantar.
+  - **Actividades de desintoxicación:** 9 actividades (la meta son unas 20).
+    «Empezar con la actividad» abre una pantalla oscura con el tiempo, los
+    pasos y el botón «Actividad realizada». Mientras dura, la extensión bloquea
+    los sitios.
+  - **Documentación científica:** biblioteca de 8 estudios y una página para
+    cada uno, explicada en palabras sencillas, con enlace al original.
+  - Cada video y cada actividad enlaza al estudio que la respalda, y cada
+    estudio muestra en qué videos y actividades se usa.
 - `extension/`: la extensión de Chrome (Manifest V3). Bloquea los sitios,
   silencia sus notificaciones y cuenta los intentos.
+- `videos-generador/`: los guiones y el programa que crea los videos.
 - `desktop/`: vacío por ahora (Fase 4).
 
 ## Requisitos
@@ -66,11 +75,12 @@ Tip: fija el ícono de Pausa en la barra de Chrome (el ícono de rompecabezas �
 
 ```
 web/src/
-  App.jsx               decide qué pantalla se ve (inicio, sesión, resumen, descanso)
-  pages/                las 4 pantallas
-  components/           estado de la extensión y la ventana para rendirse
-  hooks/                temporizador, detector de salidas, detector de la extensión
-  lib/                  sitios bloqueados, mensajes a la extensión, historial, formatos de tiempo
+  App.jsx               decide qué pantalla se ve según la URL (#/videos, #/actividades, ...)
+  pages/                una página por módulo + las pantallas de la sesión de enfoque
+  components/           menú (Layout), video vertical, pantalla oscura de actividad, etc.
+  data/                 el contenido: estudios.js, actividades.js, videos.js
+  hooks/                temporizador, detector de salidas, detector de la extensión, rutas
+  lib/                  sitios bloqueados, mensajes a la extensión, historial, voz, tiempo
 
 extension/
   manifest.json         permisos y archivos de la extensión
@@ -100,9 +110,23 @@ El bloqueo usa `chrome.declarativeNetRequest`: una regla por sitio que
 redirige la página a `blocked.html`. Las notificaciones de esos sitios se
 silencian con `chrome.contentSettings` y se restauran al terminar.
 
+## Cómo agregar contenido
+
+Todo el contenido está en `web/src/data/`:
+
+- **Un estudio:** agrega un objeto a `estudios.js` con un `id` nuevo.
+- **Una actividad:** agrega un objeto a `actividades.js`. En `estudio` va el
+  `id` del estudio que la respalda.
+- **Un video:** escribe su guion en `videos-generador/guiones.json` y sigue
+  los pasos de `videos-generador/README.md`. Todo lo que diga el video tiene
+  que estar en el estudio enlazado.
+
 ## Cosas que todavía no hace
 
-- La lista de sitios está fija en `web/src/lib/sitios.js` (se podrá editar en la Fase 3).
+- La lista de sitios está fija en `web/src/lib/sitios.js`.
+- La voz de los videos es un modelo libre básico (Piper); se puede cambiar
+  por una voz de mejor calidad regenerando los videos.
+- Hay 9 actividades y 8 estudios; la meta son unas 20 actividades.
 - Si alguien desactiva la extensión o usa modo incógnito, puede saltarse el bloqueo.
 - Solo bloquea páginas completas: un video de YouTube incrustado en otro sitio sí se ve.
 - No bloquea aplicaciones de Windows ni el celular (Fase 4 y fuera del MVP).

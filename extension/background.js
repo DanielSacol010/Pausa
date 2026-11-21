@@ -10,9 +10,10 @@
 // El estado se guarda en chrome.storage porque Chrome apaga el service
 // worker cuando no lo usa, y las variables normales se perderían.
 
-import { URL_PAUSA } from './config.js'
+import { esDePausa } from './config.js'
 
 const ALARMA_FIN = 'pausa-fin'
+const DURACION_MAXIMA = 4 * 60 * 60 * 1000 // ninguna sesión puede durar más de 4 horas
 
 const ESTADO_VACIO = {
   activa: false,
@@ -99,7 +100,7 @@ async function recargarPestanasBloqueadas(sitios) {
 }
 
 async function iniciarSesion({ terminaEn, intencion, sitios }) {
-  if (typeof terminaEn !== 'number' || terminaEn <= Date.now()) {
+  if (typeof terminaEn !== 'number' || terminaEn <= Date.now() || terminaEn > Date.now() + DURACION_MAXIMA) {
     throw new Error('La hora de fin no es válida')
   }
   const dominios = [...new Set((sitios ?? []).map(limpiarDominio).filter(Boolean))]
@@ -166,12 +167,17 @@ async function revisarSesion() {
   return estado
 }
 
-// Solo la web de Pausa puede iniciar o terminar sesiones
+// Solo la web de Pausa (o las páginas de la propia extensión) pueden hablar con esta extensión
 function vieneDePausa(remitente) {
-  return typeof remitente.url === 'string' && remitente.url.startsWith(URL_PAUSA)
+  return typeof remitente.url === 'string' && esDePausa(remitente.url)
+}
+
+function vieneDeLaExtension(remitente) {
+  return typeof remitente.url === 'string' && remitente.url.startsWith(`chrome-extension://${chrome.runtime.id}/`)
 }
 
 async function atenderMensaje(mensaje, remitente) {
+  if (!vieneDePausa(remitente) && !vieneDeLaExtension(remitente)) throw new Error('No permitido')
   switch (mensaje?.tipo) {
     case 'PING':
       return { ok: true, version: chrome.runtime.getManifest().version }

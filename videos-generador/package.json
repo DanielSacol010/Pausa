@@ -1,0 +1,13 @@
+{
+  "name": "pausa-videos-generador",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "voz": "python voz.py",
+    "muestras": "node generar.mjs --muestras",
+    "generar": "node generar.mjs"
+  },
+  "dependencies": {
+    "puppeteer-core": "^25.18.1"
+  }
+}
